@@ -7,14 +7,16 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "db:seed": "ts-node --compiler-options '{\"module\":\"CommonJS\"}' src/lib/db/seed.ts"
+    "db:seed": "ts-node --compiler-options '{\"module\":\"CommonJS\"}' src/lib/db/seed.ts",
+    "db:test": "ts-node --compiler-options '{\"module\":\"CommonJS\"}' src/lib/db/test-connection.ts"
   },
   "dependencies": {
     "@auth/mongodb-adapter": "^3.8.0",
     "@types/nodemailer": "^6.4.17",
     "bcryptjs": "^2.4.3",
+    "dotenv": "^16.4.7",
     "mongodb": "^6.15.0",
-    "mongoose": "^8.0.0",
+    "mongoose": "^8.13.1",
     "next": "14.1.0",
     "next-auth": "^4.24.11",
     "nodemailer": "^6.10.0",
@@ -24,7 +26,7 @@
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
     "@types/mongoose": "^5.11.96",
-    "@types/node": "^20.17.28",
+    "@types/node": "^20.17.29",
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "@typescript-eslint/eslint-plugin": "^6.0.0",
