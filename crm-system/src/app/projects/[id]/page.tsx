@@ -5,44 +5,46 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 
-interface Customer {
+interface Project {
   _id: string;
-  companyName: string;
-  contactName: string;
-  phone: string;
-  email: string;
-  address: string;
-  industry: string;
-  status: 'ACTIVE' | 'INACTIVE';
+  name: string;
+  description: string;
+  startDate: string;
+  endDate: string;
+  status: 'PLANNING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+  customer: {
+    _id: string;
+    companyName: string;
+  };
   assignedTo: {
     name: string;
     email: string;
   };
 }
 
-export default function CustomerDetailPage({
+export default function ProjectDetailPage({
   params,
 }: {
   params: { id: string };
 }) {
   const router = useRouter();
   const { data: session } = useSession();
-  const [customer, setCustomer] = useState<Customer | null>(null);
+  const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
-  const [formData, setFormData] = useState<Partial<Customer>>({});
+  const [formData, setFormData] = useState<Partial<Project>>({});
 
   useEffect(() => {
-    const fetchCustomer = async () => {
+    const fetchProject = async () => {
       try {
-        const response = await fetch(`/api/customers/${params.id}`);
+        const response = await fetch(`/api/projects/${params.id}`);
         if (!response.ok) {
-          throw new Error('顧客データの取得に失敗しました');
+          throw new Error('プロジェクトデータの取得に失敗しました');
         }
 
         const data = await response.json();
-        setCustomer(data);
+        setProject(data);
         setFormData(data);
       } catch (err) {
         setError(err instanceof Error ? err.message : '予期せぬエラーが発生しました');
@@ -51,13 +53,13 @@ export default function CustomerDetailPage({
       }
     };
 
-    fetchCustomer();
+    fetchProject();
   }, [params.id]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const response = await fetch(`/api/customers/${params.id}`, {
+      const response = await fetch(`/api/projects/${params.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -66,11 +68,11 @@ export default function CustomerDetailPage({
       });
 
       if (!response.ok) {
-        throw new Error('顧客データの更新に失敗しました');
+        throw new Error('プロジェクトデータの更新に失敗しました');
       }
 
-      const updatedCustomer = await response.json();
-      setCustomer(updatedCustomer);
+      const updatedProject = await response.json();
+      setProject(updatedProject);
       setIsEditing(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : '予期せぬエラーが発生しました');
@@ -78,20 +80,20 @@ export default function CustomerDetailPage({
   };
 
   const handleDelete = async () => {
-    if (!confirm('この顧客を削除してもよろしいですか？')) {
+    if (!confirm('このプロジェクトを削除してもよろしいですか？')) {
       return;
     }
 
     try {
-      const response = await fetch(`/api/customers/${params.id}`, {
+      const response = await fetch(`/api/projects/${params.id}`, {
         method: 'DELETE',
       });
 
       if (!response.ok) {
-        throw new Error('顧客の削除に失敗しました');
+        throw new Error('プロジェクトの削除に失敗しました');
       }
 
-      router.push('/customers');
+      router.push('/projects');
     } catch (err) {
       setError(err instanceof Error ? err.message : '予期せぬエラーが発生しました');
     }
@@ -113,10 +115,10 @@ export default function CustomerDetailPage({
     );
   }
 
-  if (!customer) {
+  if (!project) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <div className="text-gray-600 dark:text-gray-400">顧客が見つかりません</div>
+        <div className="text-gray-600 dark:text-gray-400">プロジェクトが見つかりません</div>
       </div>
     );
   }
@@ -127,7 +129,7 @@ export default function CustomerDetailPage({
         <div className="px-4 py-6 sm:px-0">
           <div className="flex justify-between items-center mb-6">
             <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
-              顧客詳細
+              プロジェクト詳細
             </h1>
             <div className="flex space-x-3">
               <button
@@ -151,17 +153,17 @@ export default function CustomerDetailPage({
                 <div className="grid grid-cols-1 gap-6">
                   <div>
                     <label
-                      htmlFor="companyName"
+                      htmlFor="name"
                       className="block text-sm font-medium text-gray-700 dark:text-gray-300"
                     >
-                      会社名
+                      プロジェクト名
                     </label>
                     <input
                       type="text"
-                      id="companyName"
-                      value={formData.companyName}
+                      id="name"
+                      value={formData.name}
                       onChange={(e) =>
-                        setFormData({ ...formData, companyName: e.target.value })
+                        setFormData({ ...formData, name: e.target.value })
                       }
                       className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                       required
@@ -170,73 +172,16 @@ export default function CustomerDetailPage({
 
                   <div>
                     <label
-                      htmlFor="contactName"
+                      htmlFor="description"
                       className="block text-sm font-medium text-gray-700 dark:text-gray-300"
                     >
-                      担当者名
-                    </label>
-                    <input
-                      type="text"
-                      id="contactName"
-                      value={formData.contactName}
-                      onChange={(e) =>
-                        setFormData({ ...formData, contactName: e.target.value })
-                      }
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label
-                      htmlFor="phone"
-                      className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      電話番号
-                    </label>
-                    <input
-                      type="tel"
-                      id="phone"
-                      value={formData.phone}
-                      onChange={(e) =>
-                        setFormData({ ...formData, phone: e.target.value })
-                      }
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label
-                      htmlFor="email"
-                      className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      メールアドレス
-                    </label>
-                    <input
-                      type="email"
-                      id="email"
-                      value={formData.email}
-                      onChange={(e) =>
-                        setFormData({ ...formData, email: e.target.value })
-                      }
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label
-                      htmlFor="address"
-                      className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      住所
+                      説明
                     </label>
                     <textarea
-                      id="address"
-                      value={formData.address}
+                      id="description"
+                      value={formData.description}
                       onChange={(e) =>
-                        setFormData({ ...formData, address: e.target.value })
+                        setFormData({ ...formData, description: e.target.value })
                       }
                       rows={3}
                       className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
@@ -246,25 +191,40 @@ export default function CustomerDetailPage({
 
                   <div>
                     <label
-                      htmlFor="industry"
+                      htmlFor="startDate"
                       className="block text-sm font-medium text-gray-700 dark:text-gray-300"
                     >
-                      業種
+                      開始日
                     </label>
-                    <select
-                      id="industry"
-                      value={formData.industry}
+                    <input
+                      type="date"
+                      id="startDate"
+                      value={formData.startDate?.split('T')[0]}
                       onChange={(e) =>
-                        setFormData({ ...formData, industry: e.target.value })
+                        setFormData({ ...formData, startDate: e.target.value })
                       }
                       className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                       required
+                    />
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="endDate"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300"
                     >
-                      <option value="IT">IT</option>
-                      <option value="製造">製造</option>
-                      <option value="小売">小売</option>
-                      <option value="サービス">サービス</option>
-                    </select>
+                      終了日
+                    </label>
+                    <input
+                      type="date"
+                      id="endDate"
+                      value={formData.endDate?.split('T')[0]}
+                      onChange={(e) =>
+                        setFormData({ ...formData, endDate: e.target.value })
+                      }
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                      required
+                    />
                   </div>
 
                   <div>
@@ -280,14 +240,20 @@ export default function CustomerDetailPage({
                       onChange={(e) =>
                         setFormData({
                           ...formData,
-                          status: e.target.value as 'ACTIVE' | 'INACTIVE',
+                          status: e.target.value as
+                            | 'PLANNING'
+                            | 'IN_PROGRESS'
+                            | 'COMPLETED'
+                            | 'CANCELLED',
                         })
                       }
                       className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                       required
                     >
-                      <option value="ACTIVE">取引中</option>
-                      <option value="INACTIVE">取引停止</option>
+                      <option value="PLANNING">計画中</option>
+                      <option value="IN_PROGRESS">進行中</option>
+                      <option value="COMPLETED">完了</option>
+                      <option value="CANCELLED">キャンセル</option>
                     </select>
                   </div>
                 </div>
@@ -306,68 +272,28 @@ export default function CustomerDetailPage({
             <div className="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg">
               <div className="px-4 py-5 sm:px-6">
                 <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white">
-                  {customer.companyName}
+                  {project.name}
                 </h3>
                 <p className="mt-1 max-w-2xl text-sm text-gray-500 dark:text-gray-400">
-                  顧客の詳細情報
+                  プロジェクトの詳細情報
                 </p>
               </div>
               <div className="border-t border-gray-200 dark:border-gray-700">
                 <dl>
                   <div className="bg-gray-50 dark:bg-gray-700 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
                     <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                      担当者名
+                      説明
                     </dt>
                     <dd className="mt-1 text-sm text-gray-900 dark:text-white sm:mt-0 sm:col-span-2">
-                      {customer.contactName}
+                      {project.description}
                     </dd>
                   </div>
                   <div className="bg-white dark:bg-gray-800 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
                     <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                      電話番号
+                      顧客
                     </dt>
                     <dd className="mt-1 text-sm text-gray-900 dark:text-white sm:mt-0 sm:col-span-2">
-                      {customer.phone}
-                    </dd>
-                  </div>
-                  <div className="bg-gray-50 dark:bg-gray-700 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                      メールアドレス
-                    </dt>
-                    <dd className="mt-1 text-sm text-gray-900 dark:text-white sm:mt-0 sm:col-span-2">
-                      {customer.email}
-                    </dd>
-                  </div>
-                  <div className="bg-white dark:bg-gray-800 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                      住所
-                    </dt>
-                    <dd className="mt-1 text-sm text-gray-900 dark:text-white sm:mt-0 sm:col-span-2">
-                      {customer.address}
-                    </dd>
-                  </div>
-                  <div className="bg-gray-50 dark:bg-gray-700 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                      業種
-                    </dt>
-                    <dd className="mt-1 text-sm text-gray-900 dark:text-white sm:mt-0 sm:col-span-2">
-                      {customer.industry}
-                    </dd>
-                  </div>
-                  <div className="bg-white dark:bg-gray-800 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                      ステータス
-                    </dt>
-                    <dd className="mt-1 text-sm sm:mt-0 sm:col-span-2">
-                      <span
-                        className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          customer.status === 'ACTIVE'
-                            ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                            : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-                        }`}
-                      >
-                        {customer.status === 'ACTIVE' ? '取引中' : '取引停止'}
-                      </span>
+                      {project.customer.companyName}
                     </dd>
                   </div>
                   <div className="bg-gray-50 dark:bg-gray-700 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
@@ -375,7 +301,42 @@ export default function CustomerDetailPage({
                       担当者
                     </dt>
                     <dd className="mt-1 text-sm text-gray-900 dark:text-white sm:mt-0 sm:col-span-2">
-                      {customer.assignedTo.name}
+                      {project.assignedTo.name}
+                    </dd>
+                  </div>
+                  <div className="bg-white dark:bg-gray-800 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                      期間
+                    </dt>
+                    <dd className="mt-1 text-sm text-gray-900 dark:text-white sm:mt-0 sm:col-span-2">
+                      {new Date(project.startDate).toLocaleDateString()} -{' '}
+                      {new Date(project.endDate).toLocaleDateString()}
+                    </dd>
+                  </div>
+                  <div className="bg-gray-50 dark:bg-gray-700 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                      ステータス
+                    </dt>
+                    <dd className="mt-1 text-sm sm:mt-0 sm:col-span-2">
+                      <span
+                        className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                          project.status === 'COMPLETED'
+                            ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                            : project.status === 'IN_PROGRESS'
+                            ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                            : project.status === 'CANCELLED'
+                            ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                            : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
+                        }`}
+                      >
+                        {project.status === 'PLANNING'
+                          ? '計画中'
+                          : project.status === 'IN_PROGRESS'
+                          ? '進行中'
+                          : project.status === 'COMPLETED'
+                          ? '完了'
+                          : 'キャンセル'}
+                      </span>
                     </dd>
                   </div>
                 </dl>

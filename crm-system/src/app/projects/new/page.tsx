@@ -1,33 +1,55 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 
-interface CustomerFormData {
+interface Customer {
+  _id: string;
   companyName: string;
-  contactName: string;
-  phone: string;
-  email: string;
-  address: string;
-  industry: string;
-  status: 'ACTIVE' | 'INACTIVE';
 }
 
-export default function NewCustomerPage() {
+interface ProjectFormData {
+  name: string;
+  description: string;
+  startDate: string;
+  endDate: string;
+  status: 'PLANNING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+  customer: string;
+}
+
+export default function NewProjectPage() {
   const router = useRouter();
   const { data: session } = useSession();
-  const [formData, setFormData] = useState<CustomerFormData>({
-    companyName: '',
-    contactName: '',
-    phone: '',
-    email: '',
-    address: '',
-    industry: 'IT',
-    status: 'ACTIVE',
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [formData, setFormData] = useState<ProjectFormData>({
+    name: '',
+    description: '',
+    startDate: '',
+    endDate: '',
+    status: 'PLANNING',
+    customer: '',
   });
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const fetchCustomers = async () => {
+      try {
+        const response = await fetch('/api/customers');
+        if (!response.ok) {
+          throw new Error('顧客データの取得に失敗しました');
+        }
+
+        const data = await response.json();
+        setCustomers(data);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : '予期せぬエラーが発生しました');
+      }
+    };
+
+    fetchCustomers();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,7 +57,7 @@ export default function NewCustomerPage() {
     setError(null);
 
     try {
-      const response = await fetch('/api/customers', {
+      const response = await fetch('/api/projects', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -44,11 +66,11 @@ export default function NewCustomerPage() {
       });
 
       if (!response.ok) {
-        throw new Error('顧客の登録に失敗しました');
+        throw new Error('プロジェクトの作成に失敗しました');
       }
 
-      const customer = await response.json();
-      router.push(`/customers/${customer._id}`);
+      const project = await response.json();
+      router.push(`/projects/${project._id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : '予期せぬエラーが発生しました');
     } finally {
@@ -62,7 +84,7 @@ export default function NewCustomerPage() {
         <div className="px-4 py-6 sm:px-0">
           <div className="flex justify-between items-center mb-6">
             <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
-              新規顧客登録
+              新規プロジェクト作成
             </h1>
           </div>
 
@@ -98,17 +120,17 @@ export default function NewCustomerPage() {
               <div className="grid grid-cols-1 gap-6">
                 <div>
                   <label
-                    htmlFor="companyName"
+                    htmlFor="name"
                     className="block text-sm font-medium text-gray-700 dark:text-gray-300"
                   >
-                    会社名
+                    プロジェクト名
                   </label>
                   <input
                     type="text"
-                    id="companyName"
-                    value={formData.companyName}
+                    id="name"
+                    value={formData.name}
                     onChange={(e) =>
-                      setFormData({ ...formData, companyName: e.target.value })
+                      setFormData({ ...formData, name: e.target.value })
                     }
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                     required
@@ -117,73 +139,16 @@ export default function NewCustomerPage() {
 
                 <div>
                   <label
-                    htmlFor="contactName"
+                    htmlFor="description"
                     className="block text-sm font-medium text-gray-700 dark:text-gray-300"
                   >
-                    担当者名
-                  </label>
-                  <input
-                    type="text"
-                    id="contactName"
-                    value={formData.contactName}
-                    onChange={(e) =>
-                      setFormData({ ...formData, contactName: e.target.value })
-                    }
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="phone"
-                    className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-                  >
-                    電話番号
-                  </label>
-                  <input
-                    type="tel"
-                    id="phone"
-                    value={formData.phone}
-                    onChange={(e) =>
-                      setFormData({ ...formData, phone: e.target.value })
-                    }
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="email"
-                    className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-                  >
-                    メールアドレス
-                  </label>
-                  <input
-                    type="email"
-                    id="email"
-                    value={formData.email}
-                    onChange={(e) =>
-                      setFormData({ ...formData, email: e.target.value })
-                    }
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="address"
-                    className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-                  >
-                    住所
+                    説明
                   </label>
                   <textarea
-                    id="address"
-                    value={formData.address}
+                    id="description"
+                    value={formData.description}
                     onChange={(e) =>
-                      setFormData({ ...formData, address: e.target.value })
+                      setFormData({ ...formData, description: e.target.value })
                     }
                     rows={3}
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
@@ -193,25 +158,65 @@ export default function NewCustomerPage() {
 
                 <div>
                   <label
-                    htmlFor="industry"
+                    htmlFor="customer"
                     className="block text-sm font-medium text-gray-700 dark:text-gray-300"
                   >
-                    業種
+                    顧客
                   </label>
                   <select
-                    id="industry"
-                    value={formData.industry}
+                    id="customer"
+                    value={formData.customer}
                     onChange={(e) =>
-                      setFormData({ ...formData, industry: e.target.value })
+                      setFormData({ ...formData, customer: e.target.value })
                     }
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                     required
                   >
-                    <option value="IT">IT</option>
-                    <option value="製造">製造</option>
-                    <option value="小売">小売</option>
-                    <option value="サービス">サービス</option>
+                    <option value="">選択してください</option>
+                    {customers.map((customer) => (
+                      <option key={customer._id} value={customer._id}>
+                        {customer.companyName}
+                      </option>
+                    ))}
                   </select>
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="startDate"
+                    className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                  >
+                    開始日
+                  </label>
+                  <input
+                    type="date"
+                    id="startDate"
+                    value={formData.startDate}
+                    onChange={(e) =>
+                      setFormData({ ...formData, startDate: e.target.value })
+                    }
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="endDate"
+                    className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                  >
+                    終了日
+                  </label>
+                  <input
+                    type="date"
+                    id="endDate"
+                    value={formData.endDate}
+                    onChange={(e) =>
+                      setFormData({ ...formData, endDate: e.target.value })
+                    }
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                    required
+                  />
                 </div>
 
                 <div>
@@ -227,14 +232,20 @@ export default function NewCustomerPage() {
                     onChange={(e) =>
                       setFormData({
                         ...formData,
-                        status: e.target.value as 'ACTIVE' | 'INACTIVE',
+                        status: e.target.value as
+                          | 'PLANNING'
+                          | 'IN_PROGRESS'
+                          | 'COMPLETED'
+                          | 'CANCELLED',
                       })
                     }
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                     required
                   >
-                    <option value="ACTIVE">取引中</option>
-                    <option value="INACTIVE">取引停止</option>
+                    <option value="PLANNING">計画中</option>
+                    <option value="IN_PROGRESS">進行中</option>
+                    <option value="COMPLETED">完了</option>
+                    <option value="CANCELLED">キャンセル</option>
                   </select>
                 </div>
               </div>
@@ -253,7 +264,7 @@ export default function NewCustomerPage() {
                 disabled={loading}
                 className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {loading ? '登録中...' : '登録'}
+                {loading ? '作成中...' : '作成'}
               </button>
             </div>
           </form>
