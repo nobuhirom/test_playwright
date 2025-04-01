@@ -2,82 +2,57 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { useSession } from 'next-auth/react';
+import { Button } from '@/components/ui/button';
+import { toast } from 'sonner';
 
 interface Project {
   _id: string;
-  name: string;
-  description: string;
-  startDate: string;
-  endDate: string;
-  status: 'PLANNING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
-  customer: {
+  title: string;
+  customerId?: {
     _id: string;
     companyName: string;
+    contactName?: string;
   };
-  assignedTo: {
+  amount?: number;
+  probability?: number;
+  status: 'PROPOSAL' | 'NEGOTIATION' | 'WON' | 'LOST';
+  dueDate?: string;
+  due_date?: string;
+  assignedTo?: {
+    _id: string;
     name: string;
     email: string;
   };
+  description?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
-export default function ProjectDetailPage({
-  params,
-}: {
-  params: { id: string };
-}) {
+export default function ProjectDetailPage({ params }: { params: { id: string } }) {
   const router = useRouter();
-  const { data: session } = useSession();
   const [project, setProject] = useState<Project | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isEditing, setIsEditing] = useState(false);
-  const [formData, setFormData] = useState<Partial<Project>>({});
 
   useEffect(() => {
     const fetchProject = async () => {
       try {
         const response = await fetch(`/api/projects/${params.id}`);
         if (!response.ok) {
-          throw new Error('プロジェクトデータの取得に失敗しました');
+          throw new Error('プロジェクトの取得に失敗しました');
         }
-
         const data = await response.json();
         setProject(data);
-        setFormData(data);
       } catch (err) {
         setError(err instanceof Error ? err.message : '予期せぬエラーが発生しました');
+        toast.error('プロジェクトの取得に失敗しました');
       } finally {
-        setLoading(false);
+        setIsLoading(false);
       }
     };
 
     fetchProject();
   }, [params.id]);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      const response = await fetch(`/api/projects/${params.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
-      });
-
-      if (!response.ok) {
-        throw new Error('プロジェクトデータの更新に失敗しました');
-      }
-
-      const updatedProject = await response.json();
-      setProject(updatedProject);
-      setIsEditing(false);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '予期せぬエラーが発生しました');
-    }
-  };
 
   const handleDelete = async () => {
     if (!confirm('このプロジェクトを削除してもよろしいですか？')) {
@@ -93,13 +68,15 @@ export default function ProjectDetailPage({
         throw new Error('プロジェクトの削除に失敗しました');
       }
 
+      toast.success('プロジェクトを削除しました');
       router.push('/projects');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '予期せぬエラーが発生しました');
+    } catch (error) {
+      console.error('プロジェクトの削除に失敗しました:', error);
+      toast.error('プロジェクトの削除に失敗しました');
     }
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-gray-600 dark:text-gray-400">読み込み中...</div>
@@ -107,21 +84,55 @@ export default function ProjectDetailPage({
     );
   }
 
-  if (error) {
+  if (error || !project) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <div className="text-red-600 dark:text-red-400">{error}</div>
+        <div className="text-red-600 dark:text-red-400">
+          {error || 'プロジェクトが見つかりません'}
+        </div>
       </div>
     );
   }
 
-  if (!project) {
-    return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <div className="text-gray-600 dark:text-gray-400">プロジェクトが見つかりません</div>
-      </div>
-    );
-  }
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'PROPOSAL':
+        return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
+      case 'NEGOTIATION':
+        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
+      case 'WON':
+        return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
+      case 'LOST':
+        return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
+      default:
+        return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300';
+    }
+  };
+
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case 'PROPOSAL':
+        return '提案中';
+      case 'NEGOTIATION':
+        return '交渉中';
+      case 'WON':
+        return '成約';
+      case 'LOST':
+        return '失注';
+      default:
+        return 'Unknown';
+    }
+  };
+
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return '未設定';
+    try {
+      return new Date(dateString).toLocaleDateString();
+    } catch (error) {
+      console.error('日付のフォーマットに失敗:', error);
+      return dateString;
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -131,14 +142,23 @@ export default function ProjectDetailPage({
             <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
               プロジェクト詳細
             </h1>
-            <div className="flex space-x-3">
+            <div className="flex space-x-4">
               <button
-                onClick={() => setIsEditing(!isEditing)}
-                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                type="button"
+                onClick={() => router.push('/projects')}
+                className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
               >
-                {isEditing ? 'キャンセル' : '編集'}
+                戻る
               </button>
               <button
+                type="button"
+                onClick={() => router.push(`/projects/${params.id}/edit`)}
+                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              >
+                編集
+              </button>
+              <button
+                type="button"
                 onClick={handleDelete}
                 className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
               >
@@ -147,202 +167,89 @@ export default function ProjectDetailPage({
             </div>
           </div>
 
-          {isEditing ? (
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
-                <div className="grid grid-cols-1 gap-6">
-                  <div>
-                    <label
-                      htmlFor="name"
-                      className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      プロジェクト名
-                    </label>
-                    <input
-                      type="text"
-                      id="name"
-                      value={formData.name}
-                      onChange={(e) =>
-                        setFormData({ ...formData, name: e.target.value })
-                      }
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                      required
-                    />
+          <div className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+            <div className="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700">
+              <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white">
+                {project.title}
+              </h3>
+              <p className="mt-1 max-w-2xl text-sm text-gray-500 dark:text-gray-400">
+                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(project.status)}`}>
+                  {getStatusText(project.status)}
+                </span>
+              </p>
+            </div>
+            
+            <div className="border-t border-gray-200 dark:border-gray-700 px-4 py-5 sm:p-0">
+              <dl className="sm:divide-y sm:divide-gray-200 dark:sm:divide-gray-700">
+                {project.customerId && (
+                  <div className="py-4 sm:py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">顧客</dt>
+                    <dd className="mt-1 text-sm text-gray-900 dark:text-gray-200 sm:mt-0 sm:col-span-2">
+                      {project.customerId.companyName}
+                    </dd>
                   </div>
-
-                  <div>
-                    <label
-                      htmlFor="description"
-                      className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      説明
-                    </label>
-                    <textarea
-                      id="description"
-                      value={formData.description}
-                      onChange={(e) =>
-                        setFormData({ ...formData, description: e.target.value })
-                      }
-                      rows={3}
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                      required
-                    />
+                )}
+                
+                {project.amount !== undefined && (
+                  <div className="py-4 sm:py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">金額</dt>
+                    <dd className="mt-1 text-sm text-gray-900 dark:text-gray-200 sm:mt-0 sm:col-span-2">
+                      ¥{project.amount.toLocaleString()}
+                    </dd>
                   </div>
-
-                  <div>
-                    <label
-                      htmlFor="startDate"
-                      className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      開始日
-                    </label>
-                    <input
-                      type="date"
-                      id="startDate"
-                      value={formData.startDate?.split('T')[0]}
-                      onChange={(e) =>
-                        setFormData({ ...formData, startDate: e.target.value })
-                      }
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                      required
-                    />
+                )}
+                
+                {project.probability !== undefined && (
+                  <div className="py-4 sm:py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">確度</dt>
+                    <dd className="mt-1 text-sm text-gray-900 dark:text-gray-200 sm:mt-0 sm:col-span-2">
+                      {project.probability}%
+                    </dd>
                   </div>
-
-                  <div>
-                    <label
-                      htmlFor="endDate"
-                      className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      終了日
-                    </label>
-                    <input
-                      type="date"
-                      id="endDate"
-                      value={formData.endDate?.split('T')[0]}
-                      onChange={(e) =>
-                        setFormData({ ...formData, endDate: e.target.value })
-                      }
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label
-                      htmlFor="status"
-                      className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      ステータス
-                    </label>
-                    <select
-                      id="status"
-                      value={formData.status}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          status: e.target.value as
-                            | 'PLANNING'
-                            | 'IN_PROGRESS'
-                            | 'COMPLETED'
-                            | 'CANCELLED',
-                        })
-                      }
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                      required
-                    >
-                      <option value="PLANNING">計画中</option>
-                      <option value="IN_PROGRESS">進行中</option>
-                      <option value="COMPLETED">完了</option>
-                      <option value="CANCELLED">キャンセル</option>
-                    </select>
-                  </div>
+                )}
+                
+                {/* 期限 */}
+                <div className="py-4 sm:py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                  <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">期限</dt>
+                  <dd className="mt-1 text-sm text-gray-900 dark:text-gray-200 sm:mt-0 sm:col-span-2">
+                    {formatDate(project.dueDate)}
+                  </dd>
                 </div>
-              </div>
-
-              <div className="flex justify-end">
-                <button
-                  type="submit"
-                  className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                >
-                  保存
-                </button>
-              </div>
-            </form>
-          ) : (
-            <div className="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg">
-              <div className="px-4 py-5 sm:px-6">
-                <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white">
-                  {project.name}
-                </h3>
-                <p className="mt-1 max-w-2xl text-sm text-gray-500 dark:text-gray-400">
-                  プロジェクトの詳細情報
-                </p>
-              </div>
-              <div className="border-t border-gray-200 dark:border-gray-700">
-                <dl>
-                  <div className="bg-gray-50 dark:bg-gray-700 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                      説明
-                    </dt>
-                    <dd className="mt-1 text-sm text-gray-900 dark:text-white sm:mt-0 sm:col-span-2">
-                      {project.description}
-                    </dd>
-                  </div>
-                  <div className="bg-white dark:bg-gray-800 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                      顧客
-                    </dt>
-                    <dd className="mt-1 text-sm text-gray-900 dark:text-white sm:mt-0 sm:col-span-2">
-                      {project.customer.companyName}
-                    </dd>
-                  </div>
-                  <div className="bg-gray-50 dark:bg-gray-700 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                      担当者
-                    </dt>
-                    <dd className="mt-1 text-sm text-gray-900 dark:text-white sm:mt-0 sm:col-span-2">
+                
+                {project.assignedTo && (
+                  <div className="py-4 sm:py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">担当者</dt>
+                    <dd className="mt-1 text-sm text-gray-900 dark:text-gray-200 sm:mt-0 sm:col-span-2">
                       {project.assignedTo.name}
                     </dd>
                   </div>
-                  <div className="bg-white dark:bg-gray-800 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                      期間
-                    </dt>
-                    <dd className="mt-1 text-sm text-gray-900 dark:text-white sm:mt-0 sm:col-span-2">
-                      {new Date(project.startDate).toLocaleDateString()} -{' '}
-                      {new Date(project.endDate).toLocaleDateString()}
+                )}
+                
+                {project.description && (
+                  <div className="py-4 sm:py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">説明</dt>
+                    <dd className="mt-1 text-sm text-gray-900 dark:text-gray-200 sm:mt-0 sm:col-span-2 whitespace-pre-wrap">
+                      {project.description}
                     </dd>
                   </div>
-                  <div className="bg-gray-50 dark:bg-gray-700 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                      ステータス
-                    </dt>
-                    <dd className="mt-1 text-sm sm:mt-0 sm:col-span-2">
-                      <span
-                        className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          project.status === 'COMPLETED'
-                            ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                            : project.status === 'IN_PROGRESS'
-                            ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
-                            : project.status === 'CANCELLED'
-                            ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-                            : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-                        }`}
-                      >
-                        {project.status === 'PLANNING'
-                          ? '計画中'
-                          : project.status === 'IN_PROGRESS'
-                          ? '進行中'
-                          : project.status === 'COMPLETED'
-                          ? '完了'
-                          : 'キャンセル'}
-                      </span>
-                    </dd>
-                  </div>
-                </dl>
-              </div>
+                )}
+                
+                <div className="py-4 sm:py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                  <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">作成日時</dt>
+                  <dd className="mt-1 text-sm text-gray-900 dark:text-gray-200 sm:mt-0 sm:col-span-2">
+                    {new Date(project.createdAt).toLocaleString()}
+                  </dd>
+                </div>
+                
+                <div className="py-4 sm:py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                  <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">更新日時</dt>
+                  <dd className="mt-1 text-sm text-gray-900 dark:text-gray-200 sm:mt-0 sm:col-span-2">
+                    {new Date(project.updatedAt).toLocaleString()}
+                  </dd>
+                </div>
+              </dl>
             </div>
-          )}
+          </div>
         </div>
       </div>
     </div>

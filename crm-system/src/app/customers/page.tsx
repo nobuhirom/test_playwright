@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
+import { INDUSTRIES } from '@/constants/industries';
 
 interface Customer {
   _id: string;
@@ -10,12 +11,14 @@ interface Customer {
   contactName: string;
   phone: string;
   email: string;
+  address: string;
   industry: string;
-  status: 'ACTIVE' | 'INACTIVE';
+  status: 'リード' | '商談中' | '成約' | '失注';
   assignedTo: {
     name: string;
     email: string;
   };
+  notes?: string;
 }
 
 export default function CustomersPage() {
@@ -117,10 +120,11 @@ export default function CustomersPage() {
                   onChange={(e) => setIndustryFilter(e.target.value)}
                 >
                   <option value="all">すべて</option>
-                  <option value="IT">IT</option>
-                  <option value="製造">製造</option>
-                  <option value="小売">小売</option>
-                  <option value="サービス">サービス</option>
+                  {INDUSTRIES.map((industry) => (
+                    <option key={industry.value} value={industry.value}>
+                      {industry.label}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div>
@@ -136,9 +140,11 @@ export default function CustomersPage() {
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
                 >
-                  <option value="all">すべて</option>
-                  <option value="ACTIVE">取引中</option>
-                  <option value="INACTIVE">取引停止</option>
+                  <option value="">すべて</option>
+                  <option value="リード">リード</option>
+                  <option value="商談中">商談中</option>
+                  <option value="成約">成約</option>
+                  <option value="失注">失注</option>
                 </select>
               </div>
             </div>
@@ -161,12 +167,16 @@ export default function CustomersPage() {
                         <div className="ml-2 flex-shrink-0 flex">
                           <span
                             className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                              customer.status === 'ACTIVE'
+                              customer.status === 'リード'
+                                ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                                : customer.status === '商談中'
+                                ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
+                                : customer.status === '成約'
                                 ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
                                 : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
                             }`}
                           >
-                            {customer.status === 'ACTIVE' ? '取引中' : '取引停止'}
+                            {customer.status}
                           </span>
                         </div>
                       </div>

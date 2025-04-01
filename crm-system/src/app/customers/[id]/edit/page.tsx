@@ -1,19 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-
-// 仮の顧客データ
-const customer = {
-  id: 1,
-  companyName: '株式会社ABC',
-  contactName: '山田太郎',
-  phone: '03-1234-5678',
-  email: 'yamada@abc.co.jp',
-  industry: 'IT',
-  status: 'ACTIVE',
-  address: '東京都渋谷区○○町1-2-3',
-};
+import CustomerForm, { CustomerFormData } from '@/components/CustomerForm';
 
 export default function EditCustomerPage({
   params,
@@ -21,24 +10,69 @@ export default function EditCustomerPage({
   params: { id: string };
 }) {
   const router = useRouter();
-  const [formData, setFormData] = useState(customer);
+  const [customer, setCustomer] = useState<CustomerFormData | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    // TODO: APIエンドポイントへのデータ送信処理を実装
-    console.log('更新データ:', formData);
-    router.push(`/customers/${params.id}`);
+  useEffect(() => {
+    const fetchCustomer = async () => {
+      try {
+        const response = await fetch(`/api/customers/${params.id}`);
+        if (!response.ok) {
+          throw new Error('顧客データの取得に失敗しました');
+        }
+
+        const data = await response.json();
+        setCustomer(data);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : '予期せぬエラーが発生しました');
+      }
+    };
+
+    fetchCustomer();
+  }, [params.id]);
+
+  const onSubmit = async (data: CustomerFormData) => {
+    setError(null);
+    setLoading(true);
+
+    try {
+      const response = await fetch(`/api/customers/${params.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || '顧客の更新に失敗しました');
+      }
+
+      router.push(`/customers/${params.id}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '予期せぬエラーが発生しました');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
-  ) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <div className="text-red-600 dark:text-red-400">{error}</div>
+      </div>
+    );
+  }
+
+  if (!customer) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <div className="text-gray-600 dark:text-gray-400">読み込み中...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -58,151 +92,19 @@ export default function EditCustomerPage({
           </div>
 
           <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                <div>
-                  <label
-                    htmlFor="companyName"
-                    className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-                  >
-                    会社名
-                  </label>
-                  <input
-                    type="text"
-                    name="companyName"
-                    id="companyName"
-                    required
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                    value={formData.companyName}
-                    onChange={handleChange}
-                  />
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="contactName"
-                    className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-                  >
-                    担当者名
-                  </label>
-                  <input
-                    type="text"
-                    name="contactName"
-                    id="contactName"
-                    required
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                    value={formData.contactName}
-                    onChange={handleChange}
-                  />
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="phone"
-                    className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-                  >
-                    電話番号
-                  </label>
-                  <input
-                    type="tel"
-                    name="phone"
-                    id="phone"
-                    required
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                    value={formData.phone}
-                    onChange={handleChange}
-                  />
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="email"
-                    className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-                  >
-                    メールアドレス
-                  </label>
-                  <input
-                    type="email"
-                    name="email"
-                    id="email"
-                    required
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                    value={formData.email}
-                    onChange={handleChange}
-                  />
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="industry"
-                    className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-                  >
-                    業種
-                  </label>
-                  <select
-                    name="industry"
-                    id="industry"
-                    required
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                    value={formData.industry}
-                    onChange={handleChange}
-                  >
-                    <option value="">選択してください</option>
-                    <option value="IT">IT</option>
-                    <option value="製造">製造</option>
-                    <option value="小売">小売</option>
-                    <option value="サービス">サービス</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="status"
-                    className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-                  >
-                    ステータス
-                  </label>
-                  <select
-                    name="status"
-                    id="status"
-                    required
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                    value={formData.status}
-                    onChange={handleChange}
-                  >
-                    <option value="ACTIVE">取引中</option>
-                    <option value="INACTIVE">取引停止</option>
-                  </select>
-                </div>
-
-                <div className="sm:col-span-2">
-                  <label
-                    htmlFor="address"
-                    className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-                  >
-                    住所
-                  </label>
-                  <input
-                    type="text"
-                    name="address"
-                    id="address"
-                    required
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                    value={formData.address}
-                    onChange={handleChange}
-                  />
-                </div>
+            {error && (
+              <div className="mb-4 p-4 bg-red-50 border border-red-200 text-red-600 rounded-md">
+                {error}
               </div>
+            )}
 
-              <div className="flex justify-end">
-                <button
-                  type="submit"
-                  className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                >
-                  更新
-                </button>
-              </div>
-            </form>
+            <CustomerForm
+              initialData={customer}
+              onSubmit={onSubmit}
+              submitLabel="更新"
+              cancelLabel="キャンセル"
+              onCancel={() => router.push(`/customers/${params.id}`)}
+            />
           </div>
         </div>
       </div>

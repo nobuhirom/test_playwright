@@ -2,13 +2,16 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import dbConnect from '@/lib/dbConnect';
-import Project from '@/models/Project';
+import Task from '@/models/Task';
 
 export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions);
     if (!session) {
-      return NextResponse.json({ error: '認証が必要です' }, { status: 401 });
+      return NextResponse.json(
+        { error: '認証が必要です' },
+        { status: 401 }
+      );
     }
 
     await dbConnect();
@@ -35,16 +38,15 @@ export async function GET(request: Request) {
       query.assignedTo = assignedTo;
     }
 
-    const projects = await Project.find(query)
-      .populate('customerId', 'companyName contactName')
+    const tasks = await Task.find(query)
       .populate('assignedTo', 'name email')
-      .sort({ createdAt: -1 });
+      .sort({ dueDate: 1 });
 
-    return NextResponse.json(projects);
+    return NextResponse.json(tasks);
   } catch (error) {
-    console.error('プロジェクト一覧の取得に失敗しました:', error);
+    console.error('タスク一覧の取得に失敗しました:', error);
     return NextResponse.json(
-      { error: 'プロジェクト一覧の取得に失敗しました' },
+      { error: 'タスク一覧の取得に失敗しました' },
       { status: 500 }
     );
   }
@@ -54,7 +56,10 @@ export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions);
     if (!session) {
-      return NextResponse.json({ error: '認証が必要です' }, { status: 401 });
+      return NextResponse.json(
+        { error: '認証が必要です' },
+        { status: 401 }
+      );
     }
 
     await dbConnect();
@@ -69,28 +74,16 @@ export async function POST(request: Request) {
       }
     });
 
-    // 日付フィールドの処理
-    if (cleanedData.dueDate) {
-      try {
-        // ISO形式の日付文字列に変換
-        cleanedData.dueDate = new Date(cleanedData.dueDate).toISOString();
-      } catch (error) {
-        console.error('期限の日付変換エラー:', error);
-        // エラーが発生した場合は元の値を使用
-      }
-    }
-
-    const project = await Project.create({
+    const task = await Task.create({
       ...cleanedData,
       assignedTo: cleanedData.assignedTo || session.user.id,
-      createdBy: session.user.id,
     });
 
-    return NextResponse.json(project, { status: 201 });
+    return NextResponse.json(task, { status: 201 });
   } catch (error) {
-    console.error('プロジェクトの作成に失敗しました:', error);
+    console.error('タスクの作成に失敗しました:', error);
     return NextResponse.json(
-      { error: 'プロジェクトの作成に失敗しました' },
+      { error: 'タスクの作成に失敗しました' },
       { status: 500 }
     );
   }

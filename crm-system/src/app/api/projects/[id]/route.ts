@@ -17,7 +17,7 @@ export async function GET(
     await dbConnect();
 
     const project = await Project.findById(params.id)
-      .populate('customer', 'companyName')
+      .populate('customerId', 'companyName contactName')
       .populate('assignedTo', 'name email');
 
     if (!project) {
@@ -50,13 +50,31 @@ export async function PUT(
     await dbConnect();
 
     const body = await request.json();
+    
+    // 空の文字列を持つフィールドを削除
+    const cleanedData = { ...body };
+    Object.keys(cleanedData).forEach(key => {
+      if (cleanedData[key] === '') {
+        delete cleanedData[key];
+      }
+    });
+
+    // 日付フィールドの処理
+    if (cleanedData.dueDate) {
+      try {
+        // ISO形式の日付文字列に変換
+        cleanedData.dueDate = new Date(cleanedData.dueDate).toISOString();
+      } catch (error) {
+        console.error('期限の日付変換エラー:', error);
+        // エラーが発生した場合は元の値を使用
+      }
+    }
+
     const project = await Project.findByIdAndUpdate(
       params.id,
-      { $set: body },
-      { new: true }
-    )
-      .populate('customer', 'companyName')
-      .populate('assignedTo', 'name email');
+      cleanedData,
+      { new: true, runValidators: true }
+    );
 
     if (!project) {
       return NextResponse.json(

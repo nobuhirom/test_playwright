@@ -4,6 +4,10 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
+import { useForm } from 'react-hook-form';
+import { yupResolver } from '@hookform/resolvers/yup';
+import * as yup from 'yup';
+import { INDUSTRIES } from '@/constants/industries';
 
 interface Customer {
   _id: string;
@@ -13,12 +17,25 @@ interface Customer {
   email: string;
   address: string;
   industry: string;
-  status: 'ACTIVE' | 'INACTIVE';
+  status: 'リード' | '商談中' | '成約' | '失注';
   assignedTo: {
     name: string;
     email: string;
   };
+  notes?: string;
 }
+
+type CustomerFormData = Omit<Customer, '_id' | 'assignedTo'>;
+
+const schema = yup.object().shape({
+  companyName: yup.string().required('会社名を入力してください'),
+  contactName: yup.string().required('担当者名を入力してください'),
+  phone: yup.string().required('電話番号を入力してください'),
+  email: yup.string().email('有効なメールアドレスを入力してください').required('メールアドレスを入力してください'),
+  address: yup.string().required('住所を入力してください'),
+  industry: yup.string().required('業種を選択してください'),
+  status: yup.string().required('ステータスを選択してください'),
+});
 
 export default function CustomerDetailPage({
   params,
@@ -31,19 +48,34 @@ export default function CustomerDetailPage({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
-  const [formData, setFormData] = useState<Partial<Customer>>({});
+  const { register, handleSubmit, formState: { errors }, reset } = useForm<CustomerFormData>({
+    resolver: yupResolver(schema),
+  });
+
+  useEffect(() => {
+    if (customer) {
+      reset({
+        companyName: customer.companyName,
+        contactName: customer.contactName,
+        phone: customer.phone,
+        email: customer.email,
+        address: customer.address,
+        industry: customer.industry,
+        status: customer.status,
+        notes: customer.notes,
+      });
+    }
+  }, [customer, reset]);
 
   useEffect(() => {
     const fetchCustomer = async () => {
       try {
         const response = await fetch(`/api/customers/${params.id}`);
         if (!response.ok) {
-          throw new Error('顧客データの取得に失敗しました');
+          throw new Error('顧客情報の取得に失敗しました');
         }
-
         const data = await response.json();
         setCustomer(data);
-        setFormData(data);
       } catch (err) {
         setError(err instanceof Error ? err.message : '予期せぬエラーが発生しました');
       } finally {
@@ -54,15 +86,14 @@ export default function CustomerDetailPage({
     fetchCustomer();
   }, [params.id]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmitForm = async (data: Partial<Customer>) => {
     try {
       const response = await fetch(`/api/customers/${params.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(data),
       });
 
       if (!response.ok) {
@@ -146,152 +177,179 @@ export default function CustomerDetailPage({
           </div>
 
           {isEditing ? (
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
-                <div className="grid grid-cols-1 gap-6">
-                  <div>
-                    <label
-                      htmlFor="companyName"
-                      className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      会社名
-                    </label>
-                    <input
-                      type="text"
-                      id="companyName"
-                      value={formData.companyName}
-                      onChange={(e) =>
-                        setFormData({ ...formData, companyName: e.target.value })
-                      }
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label
-                      htmlFor="contactName"
-                      className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      担当者名
-                    </label>
-                    <input
-                      type="text"
-                      id="contactName"
-                      value={formData.contactName}
-                      onChange={(e) =>
-                        setFormData({ ...formData, contactName: e.target.value })
-                      }
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label
-                      htmlFor="phone"
-                      className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      電話番号
-                    </label>
-                    <input
-                      type="tel"
-                      id="phone"
-                      value={formData.phone}
-                      onChange={(e) =>
-                        setFormData({ ...formData, phone: e.target.value })
-                      }
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label
-                      htmlFor="email"
-                      className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      メールアドレス
-                    </label>
-                    <input
-                      type="email"
-                      id="email"
-                      value={formData.email}
-                      onChange={(e) =>
-                        setFormData({ ...formData, email: e.target.value })
-                      }
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label
-                      htmlFor="address"
-                      className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      住所
-                    </label>
-                    <textarea
-                      id="address"
-                      value={formData.address}
-                      onChange={(e) =>
-                        setFormData({ ...formData, address: e.target.value })
-                      }
-                      rows={3}
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label
-                      htmlFor="industry"
-                      className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      業種
-                    </label>
-                    <select
-                      id="industry"
-                      value={formData.industry}
-                      onChange={(e) =>
-                        setFormData({ ...formData, industry: e.target.value })
-                      }
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                      required
-                    >
-                      <option value="IT">IT</option>
-                      <option value="製造">製造</option>
-                      <option value="小売">小売</option>
-                      <option value="サービス">サービス</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label
-                      htmlFor="status"
-                      className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      ステータス
-                    </label>
-                    <select
-                      id="status"
-                      value={formData.status}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          status: e.target.value as 'ACTIVE' | 'INACTIVE',
-                        })
-                      }
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                      required
-                    >
-                      <option value="ACTIVE">取引中</option>
-                      <option value="INACTIVE">取引停止</option>
-                    </select>
-                  </div>
+            <form onSubmit={handleSubmit(handleSubmitForm)} className="space-y-6">
+              <div className="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg">
+                <div className="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700">
+                  <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white">
+                    顧客情報の編集
+                  </h3>
                 </div>
-              </div>
+                <div className="border-t border-gray-200 dark:border-gray-700">
+                  <dl>
+                    <div className="bg-white dark:bg-gray-800 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                      <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                        会社名
+                      </dt>
+                      <dd className="mt-1 sm:mt-0 sm:col-span-2">
+                        <input
+                          type="text"
+                          {...register('companyName')}
+                          className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                        />
+                        {errors.companyName && (
+                          <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                            {errors.companyName.message}
+                          </p>
+                        )}
+                      </dd>
+                    </div>
+
+                    <div className="bg-gray-50 dark:bg-gray-700 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                      <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                        担当者名
+                      </dt>
+                      <dd className="mt-1 sm:mt-0 sm:col-span-2">
+                        <input
+                          type="text"
+                          {...register('contactName')}
+                          className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                        />
+                        {errors.contactName && (
+                          <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                            {errors.contactName.message}
+                          </p>
+                        )}
+                      </dd>
+                    </div>
+
+                    <div className="bg-white dark:bg-gray-800 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                      <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                        電話番号
+                      </dt>
+                      <dd className="mt-1 sm:mt-0 sm:col-span-2">
+                        <input
+                          type="tel"
+                          {...register('phone')}
+                          className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                        />
+                        {errors.phone && (
+                          <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                            {errors.phone.message}
+                          </p>
+                        )}
+                      </dd>
+                    </div>
+
+                    <div className="bg-gray-50 dark:bg-gray-700 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                      <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                        メールアドレス
+                      </dt>
+                      <dd className="mt-1 sm:mt-0 sm:col-span-2">
+                        <input
+                          type="email"
+                          {...register('email')}
+                          className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                        />
+                        {errors.email && (
+                          <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                            {errors.email.message}
+                          </p>
+                        )}
+                      </dd>
+                    </div>
+
+                    <div className="bg-white dark:bg-gray-800 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                      <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                        業種
+                      </dt>
+                      <dd className="mt-1 sm:mt-0 sm:col-span-2">
+                        <select
+                          {...register('industry')}
+                          className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                        >
+                          <option value="">選択してください</option>
+                          <option value="IT">IT</option>
+                          <option value="製造">製造</option>
+                          <option value="小売">小売</option>
+                          <option value="サービス">サービス</option>
+                          <option value="金融">金融</option>
+                          <option value="不動産">不動産</option>
+                          <option value="建設">建設</option>
+                          <option value="運輸">運輸</option>
+                          <option value="通信">通信</option>
+                          <option value="教育">教育</option>
+                          <option value="医療">医療</option>
+                          <option value="その他">その他</option>
+                        </select>
+                        {errors.industry && (
+                          <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                            {errors.industry.message}
+                          </p>
+                        )}
+                      </dd>
+                    </div>
+
+                    <div className="bg-gray-50 dark:bg-gray-700 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                      <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                        ステータス
+                      </dt>
+                      <dd className="mt-1 sm:mt-0 sm:col-span-2">
+                        <select
+                          {...register('status')}
+                          className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                        >
+                          <option value="">選択してください</option>
+                          <option value="リード">リード</option>
+                          <option value="商談中">商談中</option>
+                          <option value="成約">成約</option>
+                          <option value="失注">失注</option>
+                        </select>
+                        {errors.status && (
+                          <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                            {errors.status.message}
+                          </p>
+                        )}
+                      </dd>
+                    </div>
+
+                    <div className="bg-white dark:bg-gray-800 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                      <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                        住所
+                      </dt>
+                      <dd className="mt-1 sm:mt-0 sm:col-span-2">
+                        <input
+                          type="text"
+                          {...register('address')}
+                          className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                        />
+                        {errors.address && (
+                          <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                            {errors.address.message}
+                          </p>
+                        )}
+                      </dd>
+                    </div>
+
+                    <div className="bg-gray-50 dark:bg-gray-700 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                      <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                        備考
+                      </dt>
+                      <dd className="mt-1 sm:mt-0 sm:col-span-2">
+                        <textarea
+                          {...register('notes')}
+                          rows={4}
+                          className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                        />
+                        {errors.notes && (
+                          <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                            {errors.notes.message}
+                          </p>
+                        )}
+                      </dd>
+                    </div>
+                  </dl>
+            </div>
+          </div>
 
               <div className="flex justify-end">
                 <button
@@ -314,12 +372,20 @@ export default function CustomerDetailPage({
               </div>
               <div className="border-t border-gray-200 dark:border-gray-700">
                 <dl>
+                  <div className="bg-white dark:bg-gray-800 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                      会社名
+                    </dt>
+                    <dd className="mt-1 text-sm text-gray-900 dark:text-white sm:mt-0 sm:col-span-2">
+                      {customer.companyName}
+                    </dd>
+          </div>
                   <div className="bg-gray-50 dark:bg-gray-700 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
                     <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">
                       担当者名
                     </dt>
                     <dd className="mt-1 text-sm text-gray-900 dark:text-white sm:mt-0 sm:col-span-2">
-                      {customer.contactName}
+                      {customer.contactName || '-'}
                     </dd>
                   </div>
                   <div className="bg-white dark:bg-gray-800 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
@@ -327,7 +393,7 @@ export default function CustomerDetailPage({
                       電話番号
                     </dt>
                     <dd className="mt-1 text-sm text-gray-900 dark:text-white sm:mt-0 sm:col-span-2">
-                      {customer.phone}
+                      {customer.phone || '-'}
                     </dd>
                   </div>
                   <div className="bg-gray-50 dark:bg-gray-700 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
@@ -335,7 +401,25 @@ export default function CustomerDetailPage({
                       メールアドレス
                     </dt>
                     <dd className="mt-1 text-sm text-gray-900 dark:text-white sm:mt-0 sm:col-span-2">
-                      {customer.email}
+                      {customer.email || '-'}
+                    </dd>
+                  </div>
+                  <div className="bg-white dark:bg-gray-800 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                      業種
+                    </dt>
+                    <dd className="mt-1 text-sm text-gray-900 dark:text-white sm:mt-0 sm:col-span-2">
+                      {customer.industry || '-'}
+                    </dd>
+                  </div>
+                  <div className="bg-gray-50 dark:bg-gray-700 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                      ステータス
+                    </dt>
+                    <dd className="mt-1 text-sm sm:mt-0 sm:col-span-2">
+                      <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                        {customer.status || '-'}
+                      </span>
                     </dd>
                   </div>
                   <div className="bg-white dark:bg-gray-800 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
@@ -343,45 +427,29 @@ export default function CustomerDetailPage({
                       住所
                     </dt>
                     <dd className="mt-1 text-sm text-gray-900 dark:text-white sm:mt-0 sm:col-span-2">
-                      {customer.address}
+                      {customer.address || '-'}
                     </dd>
                   </div>
                   <div className="bg-gray-50 dark:bg-gray-700 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
                     <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                      業種
+                      備考
                     </dt>
-                    <dd className="mt-1 text-sm text-gray-900 dark:text-white sm:mt-0 sm:col-span-2">
-                      {customer.industry}
+                    <dd className="mt-1 text-sm text-gray-900 dark:text-white sm:mt-0 sm:col-span-2 whitespace-pre-wrap">
+                      {customer.notes || '-'}
                     </dd>
                   </div>
                   <div className="bg-white dark:bg-gray-800 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
                     <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                      ステータス
-                    </dt>
-                    <dd className="mt-1 text-sm sm:mt-0 sm:col-span-2">
-                      <span
-                        className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          customer.status === 'ACTIVE'
-                            ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                            : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-                        }`}
-                      >
-                        {customer.status === 'ACTIVE' ? '取引中' : '取引停止'}
-                      </span>
-                    </dd>
-                  </div>
-                  <div className="bg-gray-50 dark:bg-gray-700 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">
                       担当者
                     </dt>
                     <dd className="mt-1 text-sm text-gray-900 dark:text-white sm:mt-0 sm:col-span-2">
-                      {customer.assignedTo.name}
+                      {customer.assignedTo?.name || '-'}
                     </dd>
                   </div>
                 </dl>
+                </div>
               </div>
-            </div>
-          )}
+            )}
         </div>
       </div>
     </div>

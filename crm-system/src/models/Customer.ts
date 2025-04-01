@@ -7,34 +7,42 @@ const customerSchema = new mongoose.Schema({
   },
   contactName: {
     type: String,
-    required: [true, '担当者名は必須です'],
+    required: false,
   },
   phone: {
     type: String,
-    required: [true, '電話番号は必須です'],
+    required: false,
   },
   email: {
     type: String,
-    required: [true, 'メールアドレスは必須です'],
+    required: false,
     match: [/^\S+@\S+\.\S+$/, '有効なメールアドレスを入力してください'],
+    default: '',
   },
   address: {
     type: String,
-    required: [true, '住所は必須です'],
+    required: false,
+    default: '',
   },
   industry: {
     type: String,
-    required: [true, '業種は必須です'],
+    required: false,
+    default: '',
   },
   status: {
     type: String,
-    enum: ['ACTIVE', 'INACTIVE'],
-    default: 'ACTIVE',
+    enum: ['リード', '商談中', '成約', '失注'],
+    default: 'リード',
+  },
+  notes: {
+    type: String,
+    required: false,
+    default: '',
   },
   assignedTo: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: [true, '担当者は必須です'],
+    required: false,
   },
 }, {
   timestamps: true,

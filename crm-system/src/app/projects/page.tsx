@@ -6,29 +6,52 @@ import { useSession } from 'next-auth/react';
 
 interface Project {
   _id: string;
-  name: string;
-  description: string;
-  startDate: string;
-  endDate: string;
-  status: 'PLANNING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
-  customer: {
+  title: string;
+  description?: string;
+  amount?: number;
+  probability?: number;
+  status: 'PROPOSAL' | 'NEGOTIATION' | 'WON' | 'LOST';
+  dueDate?: string;
+  customerId?: {
     _id: string;
     companyName: string;
+    contactName: string;
   };
-  assignedTo: {
+  assignedTo?: {
+    _id: string;
     name: string;
     email: string;
   };
+  createdAt: string;
+  updatedAt: string;
 }
 
 export default function ProjectsPage() {
   const { data: session } = useSession();
   const [projects, setProjects] = useState<Project[]>([]);
+  const [customers, setCustomers] = useState<{_id: string, companyName: string}[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [customerFilter, setCustomerFilter] = useState('all');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchCustomers = async () => {
+      try {
+        const response = await fetch('/api/customers');
+        if (!response.ok) {
+          throw new Error('顧客データの取得に失敗しました');
+        }
+        const data = await response.json();
+        setCustomers(data);
+      } catch (err) {
+        console.error('顧客データの取得エラー:', err);
+      }
+    };
+
+    fetchCustomers();
+  }, []);
 
   useEffect(() => {
     const fetchProjects = async () => {
@@ -120,10 +143,10 @@ export default function ProjectsPage() {
                   onChange={(e) => setStatusFilter(e.target.value)}
                 >
                   <option value="all">すべて</option>
-                  <option value="PLANNING">計画中</option>
-                  <option value="IN_PROGRESS">進行中</option>
-                  <option value="COMPLETED">完了</option>
-                  <option value="CANCELLED">キャンセル</option>
+                  <option value="PROPOSAL">提案中</option>
+                  <option value="NEGOTIATION">交渉中</option>
+                  <option value="WON">成約</option>
+                  <option value="LOST">失注</option>
                 </select>
               </div>
               <div>
@@ -140,7 +163,11 @@ export default function ProjectsPage() {
                   onChange={(e) => setCustomerFilter(e.target.value)}
                 >
                   <option value="all">すべて</option>
-                  {/* TODO: 顧客一覧を取得して表示 */}
+                  {customers.map((customer) => (
+                    <option key={customer._id} value={customer._id}>
+                      {customer.companyName}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>
@@ -158,27 +185,27 @@ export default function ProjectsPage() {
                     <div className="px-4 py-4 sm:px-6">
                       <div className="flex items-center justify-between">
                         <div className="text-sm font-medium text-indigo-600 dark:text-indigo-400 truncate">
-                          {project.name}
+                          {project.title}
                         </div>
                         <div className="ml-2 flex-shrink-0 flex">
                           <span
                             className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                              project.status === 'COMPLETED'
+                              project.status === 'WON'
                                 ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                                : project.status === 'IN_PROGRESS'
+                                : project.status === 'NEGOTIATION'
                                 ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
-                                : project.status === 'CANCELLED'
+                                : project.status === 'LOST'
                                 ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
                                 : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
                             }`}
                           >
-                            {project.status === 'PLANNING'
-                              ? '計画中'
-                              : project.status === 'IN_PROGRESS'
-                              ? '進行中'
-                              : project.status === 'COMPLETED'
-                              ? '完了'
-                              : 'キャンセル'}
+                            {project.status === 'PROPOSAL'
+                              ? '提案中'
+                              : project.status === 'NEGOTIATION'
+                              ? '交渉中'
+                              : project.status === 'WON'
+                              ? '成約'
+                              : '失注'}
                           </span>
                         </div>
                       </div>
@@ -198,7 +225,7 @@ export default function ProjectsPage() {
                                 d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
                               />
                             </svg>
-                            {project.customer.companyName}
+                            {project.customerId?.companyName || '顧客なし'}
                           </p>
                           <p className="mt-2 flex items-center text-sm text-gray-500 dark:text-gray-400 sm:mt-0 sm:ml-6">
                             <svg
@@ -214,7 +241,7 @@ export default function ProjectsPage() {
                                 d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
                               />
                             </svg>
-                            {project.assignedTo.name}
+                            {project.assignedTo?.name}
                           </p>
                         </div>
                         <div className="mt-2 flex items-center text-sm text-gray-500 dark:text-gray-400 sm:mt-0">
@@ -231,8 +258,8 @@ export default function ProjectsPage() {
                               d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
                             />
                           </svg>
-                          {new Date(project.startDate).toLocaleDateString()} -{' '}
-                          {new Date(project.endDate).toLocaleDateString()}
+                          {new Date(project.createdAt).toLocaleDateString()} -{' '}
+                          {new Date(project.updatedAt).toLocaleDateString()}
                         </div>
                       </div>
                     </div>
